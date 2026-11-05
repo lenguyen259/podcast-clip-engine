@@ -32,7 +32,27 @@ export function buildEpisode(): Episode {
     turns.push({ id: `t${index}`, speaker: line.speaker, text: line.text, start, end, words });
     cursor += line.gap;
   });
-  return { title: "Desk to vertical", turns, duration: cursor + 0.3 };
+  // Ken's second line and Mai's question share two seconds so the wide two-shot plays in the demo.
+  overlapWithNext(turns, 1, 2);
+  const last = turns[turns.length - 1];
+  return { title: "Desk to vertical", turns, duration: (last?.end ?? cursor) + 0.3 };
+}
+
+function overlapWithNext(turns: Turn[], index: number, seconds: number): void {
+  const current = turns[index];
+  const next = turns[index + 1];
+  if (!current || !next) return;
+  const delta = next.start - (current.end - seconds);
+  if (delta <= 0) return;
+  for (let cursor = index + 1; cursor < turns.length; cursor += 1) {
+    const turn = turns[cursor];
+    turn.start -= delta;
+    turn.end -= delta;
+    for (const word of turn.words) {
+      word.start -= delta;
+      word.end -= delta;
+    }
+  }
 }
 
 export function speakerName(id: SpeakerId): string {
@@ -41,6 +61,19 @@ export function speakerName(id: SpeakerId): string {
       return "Mai";
     case "ken":
       return "Ken";
+    default: {
+      const unexpected: never = id;
+      return unexpected;
+    }
+  }
+}
+
+export function speakerRole(id: SpeakerId): string {
+  switch (id) {
+    case "mai":
+      return "Host";
+    case "ken":
+      return "Guest";
     default: {
       const unexpected: never = id;
       return unexpected;

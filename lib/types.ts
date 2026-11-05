@@ -1,5 +1,7 @@
 export type SpeakerId = "mai" | "ken";
 
+export type CameraId = SpeakerId | "both";
+
 export type Word = {
   text: string;
   start: number;

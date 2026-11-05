@@ -2,10 +2,31 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { findHighlights } from "../lib/clips";
-import { paint, speakerAt } from "../lib/draw";
+import { mouthOpen, paint, speakerAt } from "../lib/draw";
 import { buildEpisode, speakerName } from "../lib/sample";
-import type { Highlight } from "../lib/types";
+import type { Episode, Highlight, SpeakerId } from "../lib/types";
 import { DialogueVoice, type SpokenWord, type VoiceKind } from "../lib/voice";
+
+function holdClosed(video: HTMLVideoElement): void {
+  const closed = Number(video.dataset.closed ?? "0");
+  if (video.readyState >= 1 && Number.isFinite(closed) && Math.abs(video.currentTime - closed) > 0.07) {
+    video.currentTime = closed;
+  }
+  if (!video.paused) video.pause();
+}
+
+function syncCast(root: HTMLElement, episode: Episode, time: number, playing: boolean): void {
+  root.setAttribute("data-cam", speakerAt(episode, time));
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  root.querySelectorAll("video").forEach((video) => {
+    const speaker: SpeakerId = video.classList.contains("ken") ? "ken" : "mai";
+    if (playing && !reduced && mouthOpen(episode, time, speaker)) {
+      if (video.paused) void video.play().catch(() => undefined);
+      return;
+    }
+    holdClosed(video);
+  });
+}
 
 export function Room() {
   const episode = useMemo(() => buildEpisode(), []);
@@ -25,10 +46,10 @@ export function Room() {
   useEffect(() => {
     const root = frameRef.current;
     if (!root) return;
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     root.querySelectorAll("video").forEach((video) => {
-      if (reduced) video.pause();
-      else void video.play().catch(() => undefined);
+      const park = () => holdClosed(video);
+      if (video.readyState >= 1) park();
+      else video.addEventListener("loadeddata", park, { once: true });
     });
   }, []);
 
@@ -38,7 +59,10 @@ export function Room() {
       playRef.current = false;
       setPlaying(false);
     };
-    return () => voice.current.stop();
+    return () => {
+      voice.current.stop();
+      frameRef.current?.querySelectorAll("video").forEach((video) => video.pause());
+    };
   }, []);
 
   useEffect(() => {
@@ -63,7 +87,8 @@ export function Room() {
         }
       }
       if (clip && canvas) paint(canvas, episode, clip, timeRef.current);
-      frameRef.current?.setAttribute("data-cam", speakerAt(episode, timeRef.current));
+      const root = frameRef.current;
+      if (root) syncCast(root, episode, timeRef.current, playRef.current);
       frame = requestAnimationFrame(loop);
     };
     frame = requestAnimationFrame(loop);
@@ -71,18 +96,22 @@ export function Room() {
   }, [episode]);
 
   function cuesFrom(clip: Highlight, from: number): { words: SpokenWord[]; voice: VoiceKind }[] {
-    return episode.turns.flatMap((turn) => {
+    const cues: { words: SpokenWord[]; voice: VoiceKind }[] = [];
+    let coveredUntil = from;
+    for (const turn of episode.turns) {
       const words = turn.words
-        .filter((word) => word.end > clip.start && word.start < clip.end && word.end > from + 0.02)
+        .filter((word) => word.end > clip.start && word.start < clip.end && word.end > from + 0.02 && word.start >= coveredUntil - 0.04)
         .map((word) => ({
           text: word.text,
           start: Math.max(word.start, clip.start),
           end: Math.min(word.end, clip.end),
         }));
-      if (words.length === 0) return [];
+      if (words.length === 0) continue;
+      coveredUntil = Math.max(coveredUntil, words[words.length - 1]?.end ?? coveredUntil);
       const kind: VoiceKind = turn.speaker === "mai" ? "female" : "male";
-      return [{ words, voice: kind }];
-    });
+      cues.push({ words, voice: kind });
+    }
+    return cues;
   }
 
   function choose(clip: Highlight) {
@@ -136,8 +165,8 @@ export function Room() {
         <section className="stage">
           <div className="device">
             <div className="frame" data-cam="mai" ref={frameRef}>
-              <video className="cast mai" src="/mai.mp4" muted playsInline loop autoPlay aria-hidden="true" />
-              <video className="cast ken" src="/ken.mp4" muted playsInline loop autoPlay aria-hidden="true" />
+              <video className="cast mai" src="/mai.mp4" muted playsInline loop preload="auto" data-closed="3.52" aria-hidden="true" />
+              <video className="cast ken" src="/ken.mp4" muted playsInline loop preload="auto" data-closed="3.55" aria-hidden="true" />
               <canvas ref={canvasRef} className="preview" aria-label="Vertical clip preview" />
             </div>
           </div>
