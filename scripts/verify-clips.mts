@@ -6,7 +6,14 @@ import { buildEpisode } from "../lib/sample.ts";
 const episode = buildEpisode();
 const highlights = findHighlights(episode);
 assert.equal(highlights.length, 3);
-assert.ok(highlights.every((clip) => clip.end - clip.start >= 3));
+assert.ok(episode.duration >= 60 * 60 && episode.duration <= 2 * 60 * 60, `episode clock ${episode.duration}`);
+assert.ok(
+  highlights.every((clip) => {
+    const length = clip.end - clip.start;
+    return length >= 30 && length <= 60;
+  }),
+  highlights.map((clip) => (clip.end - clip.start).toFixed(1)).join(", "),
+);
 assert.ok(highlights[0].start < highlights[1].start);
 
 const question = episode.turns.find((turn) => turn.text.includes("?"));

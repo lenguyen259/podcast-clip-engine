@@ -18,6 +18,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .top { display: flex; gap: 18px; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--line); }
 .eyebrow { margin: 0; color: var(--accent); letter-spacing: 0.18em; text-transform: uppercase; font-size: 11px; font-weight: 700; }
 h1 { margin: 2px 0 0; font-family: var(--font-display), Georgia, serif; font-size: 40px; font-weight: 560; letter-spacing: -0.04em; }
+.role { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0 0 0 auto; padding: 0; }
 .chips li { display: flex; gap: 8px; border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; font-size: 12px; background: var(--panel); }
 .chips span { color: var(--muted); text-decoration: line-through; }
@@ -44,6 +45,14 @@ h1 { margin: 2px 0 0; font-family: var(--font-display), Georgia, serif; font-siz
 .clip span { grid-row: 1 / span 2; font-family: var(--font-display), Georgia, serif; font-size: 28px; color: var(--accent); }
 .clip em, .hint { color: var(--muted); font-size: 12px; font-style: normal; }
 .clip strong { font-weight: 650; line-height: 1.35; }
+.inbox { display: grid; gap: 6px; padding: 14px; border: 1px dashed var(--line); border-radius: 16px; background: #090b10; }
+.inbox p, .inbox em { margin: 0; color: var(--muted); font-size: 12px; font-style: normal; }
+.inbox strong { font-size: 16px; }
+.quiet { border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 8px 12px; }
+.wide-wait { width: min(100%, 720px); aspect-ratio: 16 / 9; border: 1px solid var(--line); border-radius: 18px; display: grid; align-content: center; justify-items: center; gap: 8px; text-align: center; padding: 24px; background: #10141c; }
+.wide-wait p, .wide-wait em { margin: 0; color: var(--muted); font-style: normal; }
+.wide-wait strong { font-family: var(--font-display), Georgia, serif; font-size: 64px; font-weight: 560; }
+.script .clock { color: #6e6256; font-size: 13px; }
 .stage { min-width: 0; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; justify-items: center; padding: 18px; background: radial-gradient(circle at 50% 20%, #1a2230, #090b10 62%); }
 .device { height: 100%; width: min(100%, 390px); background: #050608; border-radius: 32px; padding: 12px; box-shadow: 0 30px 70px rgba(0, 0, 0, 0.4); }
 .frame { position: relative; height: 100%; width: 100%; border-radius: 22px; overflow: hidden; background: #101216; }

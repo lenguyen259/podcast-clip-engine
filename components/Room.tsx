@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { findHighlights } from "../lib/clips";
 import { mouthOpen, paint, speakerAt } from "../lib/draw";
-import { buildEpisode, speakerName } from "../lib/sample";
+import { buildEpisode, formatRuntime, speakerName } from "../lib/sample";
 import type { Episode, Highlight, SpeakerId } from "../lib/types";
 import { DialogueVoice, type SpokenWord, type VoiceKind } from "../lib/voice";
 
@@ -28,30 +28,41 @@ function syncCast(root: HTMLElement, episode: Episode, time: number, playing: bo
   });
 }
 
+function clipSeconds(clip: Highlight): number {
+  return clip.end - clip.start;
+}
+
 export function Room() {
   const episode = useMemo(() => buildEpisode(), []);
-  const highlights = useMemo(() => findHighlights(episode), [episode]);
-  const [selectedId, setSelectedId] = useState(highlights[0]?.id ?? "");
+  const [inbox, setInbox] = useState<"idle" | "running" | "ready">("idle");
+  const [fileLabel, setFileLabel] = useState("episode-18.mp4");
+  const [highlights, setHighlights] = useState<Highlight[]>([]);
+  const [selectedId, setSelectedId] = useState("");
   const [playing, setPlaying] = useState(false);
   const selected = highlights.find((clip) => clip.id === selectedId) ?? highlights[0];
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
+  const dropRef = useRef<HTMLInputElement>(null);
   const timeRef = useRef(selected?.start ?? 0);
   const playRef = useRef(false);
   const clipRef = useRef(selected);
   const voice = useRef(new DialogueVoice());
+  const alive = useRef(true);
   clipRef.current = selected;
   playRef.current = playing;
 
   useEffect(() => {
+    alive.current = true;
     const root = frameRef.current;
-    if (!root) return;
-    root.querySelectorAll("video").forEach((video) => {
+    root?.querySelectorAll("video").forEach((video) => {
       const park = () => holdClosed(video);
       if (video.readyState >= 1) park();
       else video.addEventListener("loadeddata", park, { once: true });
     });
-  }, []);
+    return () => {
+      alive.current = false;
+    };
+  }, [inbox]);
 
   useEffect(() => {
     voice.current.onEnded = (time) => {
@@ -114,6 +125,22 @@ export function Room() {
     return cues;
   }
 
+  function ingest(name: string) {
+    voice.current.stop();
+    playRef.current = false;
+    setPlaying(false);
+    setFileLabel(name);
+    setInbox("running");
+    window.setTimeout(() => {
+      if (!alive.current) return;
+      const batch = findHighlights(episode);
+      setHighlights(batch);
+      setSelectedId(batch[0]?.id ?? "");
+      timeRef.current = batch[0]?.start ?? 0;
+      setInbox("ready");
+    }, 450);
+  }
+
   function choose(clip: Highlight) {
     voice.current.stop();
     setSelectedId(clip.id);
@@ -142,45 +169,91 @@ export function Room() {
     <main className="room">
       <header className="top">
         <div>
-          <p className="eyebrow">Agent 03</p>
-          <h1>Clip room</h1>
+          <p className="eyebrow">Autonomous pipeline</p>
+          <h1>Clipper</h1>
+          <p className="role">Watch folder in. Vertical batch out.</p>
         </div>
         <ul className="chips">
-          <li><span>WebRTC VAD</span><b>Turn timing</b></li>
-          <li><span>Face track</span><b>Speaker cut</b></li>
-          <li><span>Runway / Midjourney</span><b>Camera plates</b></li>
+          <li><span>Python / OpenCV</span><b>Speaker cut</b></li>
+          <li><span>FFmpeg</span><b>9:16 batch</b></li>
+          <li><span>Docker</span><b>Watch folder</b></li>
         </ul>
       </header>
       <section className="body">
         <aside className="clips">
-          {highlights.map((clip, index) => (
-            <button key={clip.id} type="button" className={clip.id === selected?.id ? "clip on" : "clip"} onClick={() => choose(clip)}>
-              <span>0{index + 1}</span>
-              <strong>{clip.text}</strong>
-              <em>{speakerName(clip.speaker)} · {clip.reasons.join(" · ")} · {clip.background}</em>
+          <div
+            className="inbox"
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              event.preventDefault();
+              const file = event.dataTransfer.files[0];
+              if (file) ingest(file.name);
+            }}
+          >
+            <p>inbox/</p>
+            <strong>{fileLabel}</strong>
+            <em>16:9 · {formatRuntime(episode.duration)} · long episode</em>
+            <button type="button" className="primary" onClick={() => ingest("episode-18.mp4")}>
+              {inbox === "running" ? "Pipeline running…" : "Ingest inbox file"}
             </button>
-          ))}
-          <p className="hint">The voice owns the clock. The camera and the caption stay on the word being said.</p>
+            <button type="button" className="quiet" onClick={() => dropRef.current?.click()}>
+              Select a recording
+            </button>
+            <input
+              ref={dropRef}
+              type="file"
+              accept="video/*,audio/*"
+              hidden
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) ingest(file.name);
+                event.target.value = "";
+              }}
+            />
+          </div>
+          {inbox === "running" ? <p className="hint">Watch folder triggered the pipeline. Finding 30–60s highlights.</p> : null}
+          {inbox === "ready"
+            ? highlights.map((clip, index) => (
+                <button key={clip.id} type="button" className={clip.id === selected?.id ? "clip on" : "clip"} onClick={() => choose(clip)}>
+                  <span>0{index + 1}</span>
+                  <strong>{Math.round(clipSeconds(clip))}s · {clip.text}</strong>
+                  <em>{speakerName(clip.speaker)} · {clip.reasons.join(" · ") || "ranked"} · {clip.background}</em>
+                </button>
+              ))
+            : <p className="hint">Drop the long 16:9 episode, or select the bundled inbox file. The batch lists itself.</p>}
         </aside>
         <section className="stage">
-          <div className="device">
-            <div className="frame" data-cam="mai" ref={frameRef}>
-              <video className="cast mai" src="/mai.mp4" muted playsInline loop preload="auto" data-closed="3.52" aria-hidden="true" />
-              <video className="cast ken" src="/ken.mp4" muted playsInline loop preload="auto" data-closed="3.55" aria-hidden="true" />
-              <canvas ref={canvasRef} className="preview" aria-label="Vertical clip preview" />
+          {inbox === "ready" && selected ? (
+            <>
+              <div className="device">
+                <div className="frame" data-cam="mai" ref={frameRef}>
+                  <video className="cast mai" src="/mai.mp4" muted playsInline loop preload="auto" data-closed="3.52" aria-hidden="true" />
+                  <video className="cast ken" src="/ken.mp4" muted playsInline loop preload="auto" data-closed="3.55" aria-hidden="true" />
+                  <canvas ref={canvasRef} className="preview" aria-label="Vertical highlight preview" />
+                </div>
+              </div>
+              <button type="button" className="primary" onClick={toggle}>
+                {playing ? "Pause" : "Play highlight"}
+              </button>
+            </>
+          ) : (
+            <div className="wide-wait">
+              <p>16:9 source</p>
+              <strong>{formatRuntime(episode.duration)}</strong>
+              <em>The output batch is 9:16, 30–60 seconds each, after the watch folder fires.</em>
             </div>
-          </div>
-          <button type="button" className="primary" onClick={toggle}>
-            {playing ? "Pause" : "Play clip"}
-          </button>
+          )}
         </section>
         <aside className="script">
           <h2>{episode.title}</h2>
-          {episode.turns.map((turn) => (
-            <p key={turn.id} className={turn.speaker}>
-              <b>{speakerName(turn.speaker)}</b> {turn.text}
-            </p>
-          ))}
+          <p className="clock">One podcast · 16:9 · {formatRuntime(episode.duration)}</p>
+          {inbox === "ready"
+            ? highlights.map((clip) => (
+                <p key={clip.id}>
+                  <b>{Math.round(clipSeconds(clip))}s highlight</b> {clip.text}
+                </p>
+              ))
+            : <p>The episode stays in the inbox until the pipeline runs. No timeline to finish.</p>}
         </aside>
       </section>
     </main>

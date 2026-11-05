@@ -53,17 +53,20 @@ export function scoreTurn(turn: Turn): { score: number; reasons: string[] } {
   return { score, reasons };
 }
 
+const MIN_CLIP_SECONDS = 30;
+const MAX_CLIP_SECONDS = 60;
+
 function expand(turns: Turn[], index: number): { start: number; end: number; text: string } {
   let from = index;
   let to = index;
   const duration = () => turns[to].end - turns[from].start;
-  while (duration() < 6) {
+  while (duration() < MIN_CLIP_SECONDS) {
     const canNext = to + 1 < turns.length;
     const canPrev = from > 0;
     const nextSpan = canNext ? turns[to + 1].end - turns[from].start : Number.POSITIVE_INFINITY;
     const prevSpan = canPrev ? turns[to].end - turns[from - 1].start : Number.POSITIVE_INFINITY;
-    if (canNext && nextSpan <= prevSpan && nextSpan <= 11) to += 1;
-    else if (canPrev && prevSpan <= 11) from -= 1;
+    if (canNext && nextSpan <= prevSpan && nextSpan <= MAX_CLIP_SECONDS) to += 1;
+    else if (canPrev && prevSpan <= MAX_CLIP_SECONDS) from -= 1;
     else break;
   }
   return {

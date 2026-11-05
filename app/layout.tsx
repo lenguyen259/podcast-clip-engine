@@ -7,7 +7,7 @@ const sans = Figtree({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
   title: "Podcast Clip Engine",
-  description: "Find podcast hooks and switch the vertical camera to the active speaker. Backgrounds are drawn in the browser.",
+  description: "Watch-folder repurposing for a long 16:9 podcast. The pipeline returns a batch of 30–60 second vertical highlights.",
 };
 
 export const viewport: Viewport = {
