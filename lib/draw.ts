@@ -1,5 +1,5 @@
 import { speakerName } from "./sample";
-import type { BackgroundId, Episode, Highlight, SpeakerId, Turn } from "./types";
+import type { BackgroundId, Episode, Highlight, SpeakerId } from "./types";
 
 const SIZE = { w: 720, h: 1280 };
 
@@ -13,7 +13,7 @@ export function paint(canvas: HTMLCanvasElement, episode: Episode, highlight: Hi
   const speaker = speakerAt(episode, time);
   const motion = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : time;
   drawBackground(ctx, highlight.background, motion);
-  drawCameras(ctx, speaker, motion);
+  drawCameras(ctx, speaker, motion, episode);
   drawCaption(ctx, episode, time);
   burn(ctx, highlight, time);
 }
@@ -24,18 +24,24 @@ function speakerAt(episode: Episode, time: number): SpeakerId {
 }
 
 function drawBackground(ctx: CanvasRenderingContext2D, id: BackgroundId, time: number): void {
+  const wall = ctx.createLinearGradient(0, 0, 0, SIZE.h);
+  wall.addColorStop(0, "#1a2430");
+  wall.addColorStop(0.55, "#0c1218");
+  wall.addColorStop(1, "#07090c");
+  ctx.fillStyle = wall;
+  ctx.fillRect(0, 0, SIZE.w, SIZE.h);
   switch (id) {
     case "mesh":
-      mesh(ctx, time);
+      windowLight(ctx, time);
       return;
     case "particles":
-      particles(ctx, time);
+      bokeh(ctx, time);
       return;
     case "bars":
-      bars(ctx, time);
+      ledWall(ctx, time);
       return;
     case "rings":
-      rings(ctx, time);
+      ringLight(ctx, time);
       return;
     default: {
       const unexpected: never = id;
@@ -44,111 +50,167 @@ function drawBackground(ctx: CanvasRenderingContext2D, id: BackgroundId, time: n
   }
 }
 
-function mesh(ctx: CanvasRenderingContext2D, time: number): void {
-  const paint = ctx.createLinearGradient(0, 0, SIZE.w, SIZE.h);
-  paint.addColorStop(0, "#07343a");
-  paint.addColorStop(1, "#101018");
-  ctx.fillStyle = paint;
+function windowLight(ctx: CanvasRenderingContext2D, time: number): void {
+  const glow = ctx.createRadialGradient(140, 220, 20, 180, 280, 340);
+  glow.addColorStop(0, "rgba(255, 214, 170, 0.45)");
+  glow.addColorStop(1, "rgba(255, 214, 170, 0)");
+  ctx.fillStyle = glow;
   ctx.fillRect(0, 0, SIZE.w, SIZE.h);
-  ctx.strokeStyle = "rgba(125, 255, 214, 0.35)";
+  ctx.strokeStyle = "rgba(255,255,255,0.08)";
   ctx.lineWidth = 2;
-  for (let row = 0; row < 8; row += 1) {
+  for (let row = 0; row < 6; row += 1) {
     ctx.beginPath();
-    for (let step = 0; step <= 12; step += 1) {
-      const x = (step / 12) * SIZE.w;
-      const y = 120 + row * 140 + Math.sin(time + step * 0.4 + row) * 18;
-      if (step === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
+    ctx.moveTo(48, 160 + row * 70 + Math.sin(time * 0.4 + row) * 4);
+    ctx.lineTo(SIZE.w - 48, 180 + row * 70);
     ctx.stroke();
   }
 }
 
-function particles(ctx: CanvasRenderingContext2D, time: number): void {
-  ctx.fillStyle = "#071018";
-  ctx.fillRect(0, 0, SIZE.w, SIZE.h);
-  for (let index = 0; index < 40; index += 1) {
-    const x = (index * 97) % SIZE.w;
-    const y = (index * 53 + time * 40) % SIZE.h;
-    ctx.fillStyle = index % 2 ? "#7dffd6" : "#f4efe6";
+function bokeh(ctx: CanvasRenderingContext2D, time: number): void {
+  for (let index = 0; index < 18; index += 1) {
+    const x = (index * 137) % SIZE.w;
+    const y = (index * 89 + time * 18) % (SIZE.h * 0.7);
+    ctx.fillStyle = index % 2 ? "rgba(255, 176, 120, 0.18)" : "rgba(150, 190, 255, 0.16)";
     ctx.beginPath();
-    ctx.arc(x, y, 4 + (index % 4), 0, Math.PI * 2);
+    ctx.arc(x, y, 18 + (index % 5) * 8, 0, Math.PI * 2);
     ctx.fill();
   }
 }
 
-function bars(ctx: CanvasRenderingContext2D, time: number): void {
-  ctx.fillStyle = "#0c1210";
-  ctx.fillRect(0, 0, SIZE.w, SIZE.h);
-  for (let index = 0; index < 14; index += 1) {
-    const height = 180 + Math.abs(Math.sin(time * 2 + index)) * 520;
-    ctx.fillStyle = index % 2 ? "#14b8a6" : "#134e4a";
-    ctx.fillRect(30 + index * 48, SIZE.h - height - 80, 28, height);
+function ledWall(ctx: CanvasRenderingContext2D, time: number): void {
+  for (let index = 0; index < 8; index += 1) {
+    const height = 280 + Math.abs(Math.sin(time * 1.4 + index)) * 360;
+    const paint = ctx.createLinearGradient(0, SIZE.h - height, 0, SIZE.h);
+    paint.addColorStop(0, index % 2 ? "rgba(255,92,70,0.0)" : "rgba(90,140,255,0.0)");
+    paint.addColorStop(1, index % 2 ? "rgba(255,92,70,0.45)" : "rgba(90,140,255,0.4)");
+    ctx.fillStyle = paint;
+    ctx.fillRect(36 + index * 84, SIZE.h - height - 40, 48, height);
   }
 }
 
-function rings(ctx: CanvasRenderingContext2D, time: number): void {
-  ctx.fillStyle = "#10141c";
-  ctx.fillRect(0, 0, SIZE.w, SIZE.h);
-  ctx.strokeStyle = "#7dffd6";
-  ctx.lineWidth = 3;
-  for (let index = 1; index <= 6; index += 1) {
-    ctx.beginPath();
-    ctx.arc(SIZE.w / 2, 430, 40 + index * 48 + Math.sin(time + index) * 6, 0, Math.PI * 2);
-    ctx.stroke();
-  }
-}
-
-function drawCameras(ctx: CanvasRenderingContext2D, active: SpeakerId, time: number): void {
-  const talking = 1 + Math.abs(Math.sin(time * 8)) * 0.04;
-  if (active === "mai") {
-    camera(ctx, 48, 180, 624, 760, "mai", talking);
-    camera(ctx, 430, 980, 230, 180, "ken", 1);
-  } else {
-    camera(ctx, 48, 180, 624, 760, "ken", talking);
-    camera(ctx, 60, 980, 230, 180, "mai", 1);
-  }
-}
-
-function camera(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, speaker: SpeakerId, scale: number): void {
-  ctx.save();
-  ctx.translate(x + w / 2, y + h / 2);
-  ctx.scale(scale, scale);
-  ctx.translate(-(x + w / 2), -(y + h / 2));
-  round(ctx, x, y, w, h, 28, speaker === "mai" ? "#1f3a34" : "#1c2740");
-  ctx.fillStyle = speaker === "mai" ? "#f0c2a0" : "#d7c4a8";
+function ringLight(ctx: CanvasRenderingContext2D, time: number): void {
+  ctx.strokeStyle = "rgba(255, 236, 214, 0.35)";
+  ctx.lineWidth = 18;
   ctx.beginPath();
-  ctx.arc(x + w / 2, y + h * 0.42, Math.min(w, h) * 0.16, 0, Math.PI * 2);
+  ctx.arc(SIZE.w / 2, 460, 210 + Math.sin(time) * 4, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+function drawCameras(ctx: CanvasRenderingContext2D, active: SpeakerId, time: number, episode: Episode): void {
+  const talking = Boolean(activeToken(episode, time));
+  ctx.fillStyle = "#14110e";
+  ctx.beginPath();
+  ctx.ellipse(SIZE.w / 2, 1180, 300, 46, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = "#111";
-  ctx.font = "700 28px Segoe UI, sans-serif";
+  if (active === "mai") {
+    person(ctx, 48, 250, 624, 820, "mai", talking, time);
+    person(ctx, 470, 980, 200, 210, "ken", false, time);
+  } else {
+    person(ctx, 48, 250, 624, 820, "ken", talking, time);
+    person(ctx, 48, 980, 200, 210, "mai", false, time);
+  }
+}
+
+function person(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  speaker: SpeakerId,
+  talking: boolean,
+  time: number,
+): void {
+  const mai = speaker === "mai";
+  ctx.save();
+  round(ctx, x, y, w, h, 28, mai ? "#243044" : "#2a211c");
+  const cx = x + w / 2;
+  const head = Math.min(w, h) * 0.16;
+  const cy = y + h * 0.4;
+  ctx.fillStyle = mai ? "#3c4e68" : "#1d2740";
+  ctx.beginPath();
+  ctx.moveTo(x + 18, y + h - 18);
+  ctx.quadraticCurveTo(cx, cy + head * 0.9, x + w - 18, y + h - 18);
+  ctx.lineTo(x + w - 28, y + h - 8);
+  ctx.lineTo(x + 28, y + h - 8);
+  ctx.fill();
+  ctx.fillStyle = mai ? "#f7f1e8" : "#d5dbe6";
+  ctx.beginPath();
+  ctx.moveTo(cx - head * 0.2, cy + head * 0.7);
+  ctx.lineTo(cx, cy + head * 1.5);
+  ctx.lineTo(cx + head * 0.2, cy + head * 0.7);
+  ctx.fill();
+  ctx.fillStyle = mai ? "#f0c2a4" : "#e4c3a2";
+  round(ctx, cx - head * 0.18, cy + head * 0.62, head * 0.36, head * 0.4, 10, mai ? "#f0c2a4" : "#e4c3a2");
+  ctx.fillStyle = mai ? "#2a1c16" : "#1a1c22";
+  ctx.beginPath();
+  ctx.ellipse(cx, cy - head * 0.35, head * 0.86, head * 0.72, 0, Math.PI, 0);
+  ctx.fill();
+  const skin = ctx.createRadialGradient(cx - head * 0.2, cy - head * 0.2, 8, cx, cy, head);
+  skin.addColorStop(0, mai ? "#ffe0cc" : "#f3d2b4");
+  skin.addColorStop(1, mai ? "#e7a888" : "#c9956e");
+  ctx.fillStyle = skin;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, head * 0.72, head * 0.86, 0, 0, Math.PI * 2);
+  ctx.fill();
+  const blink = time % 4.8 > 4.64;
+  eye(ctx, cx - head * 0.26, cy - head * 0.06, head, blink);
+  eye(ctx, cx + head * 0.26, cy - head * 0.06, head, blink);
+  const open = talking ? head * (0.045 + Math.abs(Math.sin(time * 14)) * 0.05) : head * 0.028;
+  ctx.fillStyle = "#7a3040";
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + head * 0.36, head * 0.16, open, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#f4efe6";
+  ctx.font = `700 ${Math.max(16, Math.round(w * 0.06))}px Segoe UI, sans-serif`;
   ctx.textAlign = "left";
-  ctx.fillText(speakerName(speaker).toUpperCase(), x + 24, y + 48);
+  ctx.fillText(speakerName(speaker).toUpperCase(), x + 22, y + 40);
   ctx.restore();
+}
+
+function eye(ctx: CanvasRenderingContext2D, x: number, y: number, head: number, blink: boolean): void {
+  ctx.fillStyle = "#fffaf6";
+  ctx.beginPath();
+  ctx.ellipse(x, y, head * 0.11, blink ? head * 0.015 : head * 0.07, 0, 0, Math.PI * 2);
+  ctx.fill();
+  if (blink) return;
+  ctx.fillStyle = "#2a211c";
+  ctx.beginPath();
+  ctx.arc(x, y, head * 0.035, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 function drawCaption(ctx: CanvasRenderingContext2D, episode: Episode, time: number): void {
   const turn = episode.turns.find((item) => time >= item.start && time <= item.end);
   if (!turn) return;
-  const words = wordsAround(turn, time);
-  ctx.font = "700 42px Segoe UI, sans-serif";
-  const width = Math.min(620, ctx.measureText(words).width + 48);
-  round(ctx, (SIZE.w - width) / 2, 860, width, 84, 16, "rgba(6, 10, 12, 0.78)");
-  ctx.fillStyle = "#f4efe6";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(words, SIZE.w / 2, 902);
-  ctx.textBaseline = "alphabetic";
-}
-
-function wordsAround(turn: Turn, time: number): string {
   const index = turn.words.findIndex((word) => time >= word.start && time <= word.end);
   const anchor = index === -1 ? 0 : index;
   const from = Math.max(0, anchor - 1);
-  const to = Math.min(turn.words.length, from + 4);
-  return turn.words.slice(from, to).map((word) => word.text).join(" ");
+  const slice = turn.words.slice(from, Math.min(turn.words.length, from + 4));
+  ctx.font = "700 40px Segoe UI, sans-serif";
+  const label = slice.map((word) => word.text).join(" ");
+  const width = Math.min(640, ctx.measureText(label).width + 56);
+  const boxX = (SIZE.w - width) / 2;
+  round(ctx, boxX, 1040, width, 92, 18, "rgba(8,10,14,0.82)");
+  let cursor = boxX + 28;
+  ctx.textBaseline = "middle";
+  slice.forEach((word, offset) => {
+    const current = from + offset === index;
+    ctx.fillStyle = current ? "#ffb15a" : "#f4efe6";
+    ctx.textAlign = "left";
+    ctx.fillText(word.text, cursor, 1086);
+    cursor += ctx.measureText(`${word.text} `).width;
+  });
+  ctx.textBaseline = "alphabetic";
 }
 
+function activeToken(episode: Episode, time: number): string {
+  for (const turn of episode.turns) {
+    const word = turn.words.find((item) => time >= item.start && time <= item.end);
+    if (word) return word.text;
+  }
+  return "";
+}
 function burn(ctx: CanvasRenderingContext2D, highlight: Highlight, time: number): void {
   ctx.fillStyle = "rgba(244,239,230,0.8)";
   ctx.font = "600 24px Consolas, monospace";
