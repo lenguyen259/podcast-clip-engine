@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { findHighlights } from "../lib/clips";
-import { paint } from "../lib/draw";
+import { paint, speakerAt } from "../lib/draw";
 import { buildEpisode, speakerName } from "../lib/sample";
 import type { Highlight } from "../lib/types";
 import { DialogueVoice, type SpokenWord, type VoiceKind } from "../lib/voice";
@@ -14,12 +14,23 @@ export function Room() {
   const [playing, setPlaying] = useState(false);
   const selected = highlights.find((clip) => clip.id === selectedId) ?? highlights[0];
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
   const timeRef = useRef(selected?.start ?? 0);
   const playRef = useRef(false);
   const clipRef = useRef(selected);
   const voice = useRef(new DialogueVoice());
   clipRef.current = selected;
   playRef.current = playing;
+
+  useEffect(() => {
+    const root = frameRef.current;
+    if (!root) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    root.querySelectorAll("video").forEach((video) => {
+      if (reduced) video.pause();
+      else void video.play().catch(() => undefined);
+    });
+  }, []);
 
   useEffect(() => {
     voice.current.onEnded = (time) => {
@@ -52,6 +63,7 @@ export function Room() {
         }
       }
       if (clip && canvas) paint(canvas, episode, clip, timeRef.current);
+      frameRef.current?.setAttribute("data-cam", speakerAt(episode, timeRef.current));
       frame = requestAnimationFrame(loop);
     };
     frame = requestAnimationFrame(loop);
@@ -107,7 +119,7 @@ export function Room() {
         <ul className="chips">
           <li><span>WebRTC VAD</span><b>Turn timing</b></li>
           <li><span>Face track</span><b>Speaker cut</b></li>
-          <li><span>Runway / Midjourney</span><b>Drawn set</b></li>
+          <li><span>Runway / Midjourney</span><b>Camera plates</b></li>
         </ul>
       </header>
       <section className="body">
@@ -123,7 +135,9 @@ export function Room() {
         </aside>
         <section className="stage">
           <div className="device">
-            <div className="frame">
+            <div className="frame" data-cam="mai" ref={frameRef}>
+              <video className="cast mai" src="/mai.mp4" muted playsInline loop autoPlay aria-hidden="true" />
+              <video className="cast ken" src="/ken.mp4" muted playsInline loop autoPlay aria-hidden="true" />
               <canvas ref={canvasRef} className="preview" aria-label="Vertical clip preview" />
             </div>
           </div>
